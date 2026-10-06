@@ -24,3 +24,23 @@ chosen over MAPE because many weeks have zero sales.
 ![Model comparison](docs/images/05_model_comparison.png)
 ![Forecast example](docs/images/06_forecast_example.png)
 ![Feature importance](docs/images/07_feature_importance.png)
+
+
+
+## Pipeline (Airflow)
+
+A weekly Airflow DAG (Docker, runs Mondays 06:00 UTC) automates the full workflow:
+
+`load_raw` → `build_staging` → `build_features` → `evaluate_model` → `forecast_next_week`
+
+| Task | What it does |
+|---|---|
+| load_raw | Loads Kaggle CSVs into Snowflake `RAW` |
+| build_staging | Runs `sql/03_staging.sql`: type casting, oil fill-forward, store-level holidays, weekly aggregation |
+| build_features | PySpark window functions build lag/rolling/calendar features, plus a "next week" row per series |
+| evaluate_model | **Quality gate:** retrains XGBoost on all but the latest week, scores that week, logs WAPE to `ACCURACY_LOG`, and fails the run if WAPE exceeds 12% |
+| forecast_next_week | Retrains on all history and writes 1,782 store-category forecasts to `ANALYTICS.FORECASTS` |
+
+**Latest run:** holdout WAPE 9.99% (passed); next-week forecast for 1,782 series.
+
+Run locally: `docker compose build && docker compose up -d`, then open http://localhost:8080.
