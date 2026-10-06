@@ -1,6 +1,7 @@
-"""Embed the store summaries with OpenAI and search them by meaning."""
+"""Embed the store summaries with OpenAI and search them (hybrid: store filter + semantic)."""
 import json
 import os
+import re
 from pathlib import Path
 import numpy as np
 from openai import OpenAI
@@ -15,7 +16,7 @@ EMBED_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 def embed(texts):
     resp = OpenAI().embeddings.create(model=EMBED_MODEL, input=texts)
     vecs = np.array([d.embedding for d in resp.data], dtype=np.float32)
-    return vecs / np.linalg.norm(vecs, axis=1, keepdims=True)   # normalize for cosine similarity
+    return vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
 
 
 def build_index():
@@ -26,7 +27,6 @@ def build_index():
         rows = cur.fetchall()
     finally:
         conn.close()
-
     docs = [{"store_nbr": int(r[0]), "week_start": str(r[1]), "text": r[2]} for r in rows]
     vecs = embed([d["text"] for d in docs])
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -36,11 +36,16 @@ def build_index():
 
 
 def search(question, k=3):
+    """Hybrid retrieval: stores named in the question first, then best semantic matches."""
     vecs = np.load(INDEX_DIR / "vectors.npy")
     docs = json.loads((INDEX_DIR / "docs.json").read_text())
+    named = {int(n) for n in re.findall(r"(?i)\bstores?\s*(?:#|no\.?|number)?\s*(\d+)", question)}
     scores = vecs @ embed([question])[0]
-    top = np.argsort(scores)[::-1][:k]
-    return [{**docs[i], "score": round(float(scores[i]), 3)} for i in top]
+    order = sorted(range(len(docs)),
+                   key=lambda i: (docs[i]["store_nbr"] not in named, -scores[i]))
+    return [{**docs[i], "score": round(float(scores[i]), 3),
+             "matched_by": "store filter" if docs[i]["store_nbr"] in named else "semantic"}
+            for i in order[:k]]
 
 
 def refresh():
