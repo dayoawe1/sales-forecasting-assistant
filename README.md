@@ -44,3 +44,20 @@ A weekly Airflow DAG (Docker, runs Mondays 06:00 UTC) automates the full workflo
 **Latest run:** holdout WAPE 9.99% (passed); next-week forecast for 1,782 series.
 
 Run locally: `docker compose build && docker compose up -d`, then open http://localhost:8080.
+
+
+## AI Assistant (LLM + RAG + text-to-SQL)
+
+An OpenAI tool-calling agent answers business questions about the forecasts:
+
+- **Text-to-SQL:** writes Snowflake queries for numbers, rankings and comparisons, executed
+  through a read-only role with a table allow-list and write-statement blocking.
+- **Hybrid RAG:** retrieves auto-generated weekly forecast summaries per store, combining a
+  store-number metadata filter with embedding similarity (text-embedding-3-small).
+- **Evaluation:** scored against SQL-computed ground truth. Two failures found in the first
+  run (retrieval missing store-specific documents; an ambiguous percent-change definition)
+  were fixed, raising accuracy from 8/9 to 9/9.
+- **Automated:** Airflow regenerates summaries and embeddings after each weekly forecast.
+
+Example: *"Which 3 stores have the biggest forecasted decline vs last week?"* returns
+stores 25 (-24.0%), 18 (-19.4%) and 20 (-6.4%), computed live from Snowflake.
