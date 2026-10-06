@@ -2,3 +2,4 @@ pyspark==3.5.3
 xgboost==2.1.1
 python-dotenv
 scikit-learn
+openai

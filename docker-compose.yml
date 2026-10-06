@@ -12,6 +12,7 @@ services:
       SNOWFLAKE_USER: ${SNOWFLAKE_USER}
       SNOWFLAKE_PRIVATE_KEY_FILE: /opt/airflow/keys/rsa_key.p8
       WAPE_THRESHOLD: "0.12"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./:/opt/airflow/project

@@ -29,6 +29,11 @@ def _forecast_next_week():
     forecast()
 
 
+def _refresh_rag():
+    from src.rag.index import refresh
+    refresh()
+
+
 default_args = {"owner": "dayo", "retries": 1, "retry_delay": timedelta(minutes=5)}
 
 with DAG(
@@ -47,4 +52,6 @@ with DAG(
     forecast_next_week = PythonOperator(task_id="forecast_next_week",
                                         python_callable=_forecast_next_week)
 
-    load_raw >> build_staging >> build_features >> evaluate_model >> forecast_next_week
+    refresh_rag = PythonOperator(task_id="refresh_rag", python_callable=_refresh_rag)
+
+    load_raw >> build_staging >> build_features >> evaluate_model >> forecast_next_week >> refresh_rag
